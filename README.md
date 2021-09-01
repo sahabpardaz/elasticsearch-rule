@@ -4,41 +4,34 @@ A JUnit rule for starting an elasticsearch server on the local machine.
 ## Sample Usage
 
 ```java
-private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
-
 @ClassRule
-public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule(ELASTICSEARCH_CLUSTER_NAME);
+public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule();
 
-private static TransportClient transportClient;
+private static RestHighLevelClient restHighLevelClient;
 
 @BeforeClass
 public static void setUpClass() {
-    transportClient = elasticsearchRule.getTransportClient();
+    restHighLevelClient = elasticsearchRule.getRestHighLevelClient();
 }
 
 @Test
-public void testClient() {
+public void test() {
     String indexName = "twitter";
-    CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
+    CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+    CreateIndexResponse createIndexResponse = restHighLevelClient.indices()
+            .create(createIndexRequest,RequestOptions.DEFAULT);
     Assert.assertTrue(createIndexResponse.isAcknowledged());
 }
-``` 
-It is also possible to get the network address of the Elasticsearch server and construct the TransportClient:
+```
+It is also possible to get the network address of the Elasticsearch server and construct the RestHighLevelClient:
 ```java
 @BeforeClass
 public static void setUpClass() {
     String address = elasticsearchRule.getAddress();
     String elasticsearchHost = address.split(":")[0];
     int elasticsearchPort = Integer.parseInt(address.split(":")[1]);
-    InetAddress elasticsearchInetAddress;
-    try {
-        elasticsearchInetAddress = InetAddress.getByName(elasticsearchHost);
-    } catch (UnknownHostException e) {
-        throw new AssertionError("Cannot get the elasticsearch server address " + elasticsearchHost + ".", e);
-    }
-    Settings settings = Settings.builder().put("cluster.name", ELASTICSEARCH_CLUSTER_NAME).build();
-    transportClient = new PreBuiltTransportClient(settings);
-    transportClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
+    RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
+            new HttpHost(elasticsearchHost, elasticsearchPort, "http")));
 }
 ```
 
