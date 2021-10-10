@@ -26,3 +26,8 @@ hs_err_pid*
 
 # Maven target directory
 target/
+
+# Other project files
+.settings
+.project
+.classpath
