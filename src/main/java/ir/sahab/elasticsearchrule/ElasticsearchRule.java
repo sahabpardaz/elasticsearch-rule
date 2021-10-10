@@ -27,11 +27,20 @@ import org.junit.rules.ExternalResource;
  */
 public class ElasticsearchRule extends ExternalResource {
 
-    private static String defaultHost = "localhost";
-    private static int defaultPort = 9200;
+    private static final String DEFAULT_HOST = "localhost";
+    private static final int DEFAULT_PORT = 9200;
 
     private Node server;
     private RestHighLevelClient restHighLevelClient;
+    private int port;
+
+    public ElasticsearchRule() {
+        this(DEFAULT_PORT);
+    }
+
+    public ElasticsearchRule(int port) {
+        this.port = port;
+    }
 
     @Override
     protected void before() throws IOException, NodeValidationException, ExecutionException, InterruptedException {
@@ -44,6 +53,7 @@ public class ElasticsearchRule extends ExternalResource {
         builder.put(Environment.PATH_HOME_SETTING.getKey(), Files.createTempDirectory("elastic.home"));
         builder.put(ClusterName.CLUSTER_NAME_SETTING.getKey(), "cluster-name");
         builder.put("discovery.type", "single-node");
+        builder.put("http.port", port);
         Settings settings = builder.build();
 
         // Create the Elasticsearch server node and running it.
@@ -55,7 +65,7 @@ public class ElasticsearchRule extends ExternalResource {
 
         // Create a REST high level client ready to be used in tests.
         restHighLevelClient = new RestHighLevelClient(RestClient.builder(
-                new HttpHost(defaultHost, defaultPort, HttpHost.DEFAULT_SCHEME_NAME)));
+                new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)));
     }
 
     @Override
@@ -85,6 +95,6 @@ public class ElasticsearchRule extends ExternalResource {
     }
 
     public String getRestAddress() {
-        return defaultHost + ":" + defaultPort;
+        return DEFAULT_HOST + ":" + port;
     }
 }
