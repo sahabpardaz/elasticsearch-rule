@@ -71,17 +71,16 @@ public class ElasticsearchRuleTest {
     }
 
     @Test
-    public void testAddress() throws IOException {
-        String address = elasticsearchRule.getRestAddress();
-        String elasticsearchHost = address.split(":")[0];
-        int elasticsearchPort = Integer.parseInt(address.split(":")[1]);
-        RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
-            new HttpHost(elasticsearchHost, elasticsearchPort, "http")));
-        String indexName = "twitter2";
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
-        CreateIndexResponse createIndexResponse = anotherRestHighLevelClient.indices().create(createIndexRequest,
-                RequestOptions.DEFAULT);
-        Assert.assertTrue(createIndexResponse.isAcknowledged());
-        anotherRestHighLevelClient.close();
+    public void testHostAndPort() throws IOException {
+        String elasticsearchHost = elasticsearchRule.getHost();
+        int elasticsearchPort = elasticsearchRule.getPort();
+        try (RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
+            new HttpHost(elasticsearchHost, elasticsearchPort, "http")))) {
+            String indexName = "twitter2";
+            CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+            CreateIndexResponse createIndexResponse = anotherRestHighLevelClient.indices().create(createIndexRequest,
+                    RequestOptions.DEFAULT);
+            Assert.assertTrue(createIndexResponse.isAcknowledged());
+        }
     }
 }

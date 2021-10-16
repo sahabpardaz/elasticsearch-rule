@@ -1,4 +1,15 @@
 # Elasticsearch Rule
+[![Tests](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml/badge.svg?branch=main)](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=coverage)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=security_rating)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=sqale_index)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=alert_status)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
+[![JitPack](https://jitpack.io/v/sahabpardaz/elasticsearch-rule.svg)](https://jitpack.io/#sahabpardaz/elasticsearch-rule)
+
 A JUnit rule for starting an elasticsearch server on the local machine.
 
 ## Sample Usage
@@ -27,9 +38,8 @@ It is also possible to get the network address of the Elasticsearch server and c
 ```java
 @BeforeClass
 public static void setUpClass() {
-    String address = elasticsearchRule.getAddress();
-    String elasticsearchHost = address.split(":")[0];
-    int elasticsearchPort = Integer.parseInt(address.split(":")[1]);
+    String elasticsearchHost = elasticsearchRule.getHost();
+    int elasticsearchPort = elasticsearchRule.getPort();
     RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
             new HttpHost(elasticsearchHost, elasticsearchPort, "http")));
 }

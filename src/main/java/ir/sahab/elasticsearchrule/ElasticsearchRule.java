@@ -1,6 +1,7 @@
 package ir.sahab.elasticsearchrule;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,14 +29,13 @@ import org.junit.rules.ExternalResource;
 public class ElasticsearchRule extends ExternalResource {
 
     private static final String DEFAULT_HOST = "localhost";
-    private static final int DEFAULT_PORT = 9200;
 
     private Node server;
     private RestHighLevelClient restHighLevelClient;
     private int port;
 
     public ElasticsearchRule() {
-        this(DEFAULT_PORT);
+        this(anOpenPort());
     }
 
     public ElasticsearchRule(int port) {
@@ -70,11 +70,19 @@ public class ElasticsearchRule extends ExternalResource {
 
     @Override
     protected void after() {
-        try {
-            restHighLevelClient.close();
-            server.close();
-        } catch (IOException e) {
-            throw new AssertionError("Cannot close the rest client or the server.");
+        if (restHighLevelClient != null) {
+            try {
+                restHighLevelClient.close();
+            } catch (IOException e) {
+                throw new AssertionError("Cannot close the REST client.");
+            }
+        }
+        if (server != null) {
+            try {
+                server.close();
+            } catch (IOException e) {
+                throw new AssertionError("Cannot close the server.");
+            }
         }
     }
 
@@ -90,11 +98,23 @@ public class ElasticsearchRule extends ExternalResource {
         }
     }
 
+    public static Integer anOpenPort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new AssertionError("Unable to find an open port.", e);
+        }
+    }
+
     public RestHighLevelClient getRestHighLevelClient() {
         return this.restHighLevelClient;
     }
 
-    public String getRestAddress() {
-        return DEFAULT_HOST + ":" + port;
+    public String getHost() {
+        return DEFAULT_HOST;
+    }
+
+    public int getPort() {
+        return this.port;
     }
 }
