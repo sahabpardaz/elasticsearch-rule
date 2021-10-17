@@ -70,19 +70,19 @@ public class ElasticsearchRule extends ExternalResource {
 
     @Override
     protected void after() {
-        if (restHighLevelClient != null) {
-            try {
+        try {
+            if (restHighLevelClient != null) {
                 restHighLevelClient.close();
-            } catch (IOException e) {
-                throw new AssertionError("Cannot close the REST client.");
             }
+        } catch (IOException e) {
+            throw new AssertionError("Cannot close the REST client.");
         }
-        if (server != null) {
-            try {
+        try {
+            if (server != null) {
                 server.close();
-            } catch (IOException e) {
-                throw new AssertionError("Cannot close the server.");
             }
+        } catch (IOException e) {
+            throw new AssertionError("Cannot close the server.");
         }
     }
 

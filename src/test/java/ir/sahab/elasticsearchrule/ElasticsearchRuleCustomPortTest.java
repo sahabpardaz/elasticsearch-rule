@@ -1,9 +1,9 @@
 package ir.sahab.elasticsearchrule;
 
+import static ir.sahab.elasticsearchrule.ElasticsearchRule.anOpenPort;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.MainResponse;
@@ -33,13 +33,5 @@ public class ElasticsearchRuleCustomPortTest {
         MainResponse response = restHighLevelClient.info(RequestOptions.DEFAULT);
 
         assertEquals("7.12.0", response.getVersion().getNumber());
-    }
-
-    public static Integer anOpenPort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new AssertionError("Unable to find an open port.", e);
-        }
     }
 }
