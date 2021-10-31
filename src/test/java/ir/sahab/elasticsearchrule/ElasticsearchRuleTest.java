@@ -1,18 +1,22 @@
 package ir.sahab.elasticsearchrule;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import java.io.IOException;
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.CreateIndexResponse;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -20,60 +24,63 @@ import org.junit.Test;
 
 public class ElasticsearchRuleTest {
 
-    private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
-
     @ClassRule
-    public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule(ELASTICSEARCH_CLUSTER_NAME);
+    public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule();
 
-    private static TransportClient transportClient;
+    private static RestHighLevelClient restHighLevelClient;
 
     @BeforeClass
     public static void setUpClass() {
-        transportClient = elasticsearchRule.getTransportClient();
+        restHighLevelClient = elasticsearchRule.getRestHighLevelClient();
     }
-    
+
     @Test
-    public void testClient() {
+    public void testClient() throws IOException {
         String indexName = "twitter";
-        CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
+        CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+        CreateIndexResponse createIndexResponse = restHighLevelClient.indices().create(createIndexRequest,
+                RequestOptions.DEFAULT);
         Assert.assertTrue(createIndexResponse.isAcknowledged());
-        transportClient.admin().cluster().prepareHealth().setWaitForYellowStatus().get();
+
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indexName);
+        clusterHealthRequest.waitForYellowStatus();
+        restHighLevelClient.cluster().health(clusterHealthRequest, RequestOptions.DEFAULT);
+
+        IndexRequest indexRequest = new IndexRequest(indexName);
+        indexRequest.id("1");
         String json = "{"
                 + "    \"user\":\"kimchy\","
                 + "    \"postDate\":\"2013-01-30\","
                 + "    \"message\":\"trying out Elasticsearch\""
                 + "}";
-        IndexResponse response = transportClient.prepareIndex("twitter", "tweet")
-                .setSource(json, XContentType.JSON)
-                .get();
+        indexRequest.source(json, XContentType.JSON);
+        IndexResponse response = restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
         Assert.assertEquals(RestStatus.CREATED, response.status());
-        transportClient.admin().indices().prepareRefresh(indexName).get();
 
-        SearchResponse searchResponse = transportClient.prepareSearch(indexName)
-                .setQuery(QueryBuilders.matchQuery("user", "kimchy"))
-                .get();
+        RefreshRequest refreshRequest = new RefreshRequest(indexName);
+        restHighLevelClient.indices().refresh(refreshRequest, RequestOptions.DEFAULT);
+
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.matchQuery("user", "kimchy"));
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.source(searchSourceBuilder);
+        SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         Assert.assertEquals(1, searchResponse.getHits().getHits().length);
         String postDate = (String) searchResponse.getHits().getAt(0).getSourceAsMap().get("message");
         Assert.assertEquals("trying out Elasticsearch", postDate);
     }
 
     @Test
-    public void testAddress() {
-        String address = elasticsearchRule.getAddress();
-        String elasticsearchHost = address.split(":")[0];
-        int elasticsearchPort = Integer.parseInt(address.split(":")[1]);
-        InetAddress elasticsearchInetAddress;
-        try {
-            elasticsearchInetAddress = InetAddress.getByName(elasticsearchHost);
-        } catch (UnknownHostException e) {
-            throw new AssertionError("Cannot get the elasticsearch server address " + elasticsearchHost + ".", e);
+    public void testHostAndPort() throws IOException {
+        String elasticsearchHost = elasticsearchRule.getHost();
+        int elasticsearchPort = elasticsearchRule.getPort();
+        try (RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
+            new HttpHost(elasticsearchHost, elasticsearchPort, "http")))) {
+            String indexName = "twitter2";
+            CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+            CreateIndexResponse createIndexResponse = anotherRestHighLevelClient.indices().create(createIndexRequest,
+                    RequestOptions.DEFAULT);
+            Assert.assertTrue(createIndexResponse.isAcknowledged());
         }
-        Settings settings = Settings.builder().put("cluster.name", ELASTICSEARCH_CLUSTER_NAME).build();
-        TransportClient internalTransportClient = new PreBuiltTransportClient(settings);
-        internalTransportClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
-        String indexName = "twitter2";
-        CreateIndexResponse createIndexResponse = internalTransportClient.admin().indices().prepareCreate(indexName).get();
-        Assert.assertTrue(createIndexResponse.isAcknowledged());
-        internalTransportClient.close();
     }
 }
