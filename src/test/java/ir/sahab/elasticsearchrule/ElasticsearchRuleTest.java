@@ -2,7 +2,7 @@ package ir.sahab.elasticsearchrule;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
@@ -31,13 +31,19 @@ public class ElasticsearchRuleTest {
     public static void setUpClass() {
         transportClient = elasticsearchRule.getTransportClient();
     }
-    
+
     @Test
     public void testClient() {
         String indexName = "twitter";
         CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
         Assert.assertTrue(createIndexResponse.isAcknowledged());
-        transportClient.admin().cluster().prepareHealth().setWaitForYellowStatus().get();
+
+        ClusterHealthResponse clusterHealthResponse =
+                transportClient.admin().cluster().prepareHealth().setWaitForGreenStatus().get();
+        if (clusterHealthResponse.status() == RestStatus.REQUEST_TIMEOUT) {
+            throw new AssertionError("The state of the system did not change to green.");
+        }
+
         String json = "{"
                 + "    \"user\":\"kimchy\","
                 + "    \"postDate\":\"2013-01-30\","
@@ -66,13 +72,14 @@ public class ElasticsearchRuleTest {
         try {
             elasticsearchInetAddress = InetAddress.getByName(elasticsearchHost);
         } catch (UnknownHostException e) {
-            throw new AssertionError("Cannot get the elasticsearch server address " + elasticsearchHost + ".", e);
+            throw new AssertionError("Cannot get the elasticsearch server address: " + elasticsearchHost, e);
         }
         Settings settings = Settings.builder().put("cluster.name", ELASTICSEARCH_CLUSTER_NAME).build();
         TransportClient internalTransportClient = new PreBuiltTransportClient(settings);
         internalTransportClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
         String indexName = "twitter2";
-        CreateIndexResponse createIndexResponse = internalTransportClient.admin().indices().prepareCreate(indexName).get();
+        CreateIndexResponse createIndexResponse = internalTransportClient.admin().indices()
+                .prepareCreate(indexName).get();
         Assert.assertTrue(createIndexResponse.isAcknowledged());
         internalTransportClient.close();
     }
