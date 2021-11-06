@@ -19,6 +19,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <elasticsearch.version>6.2.4</elasticsearch.version>
         <cleanup.version>1.0.1</cleanup.version>
+
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.organization>sahabpardaz</sonar.organization>
+        <sonar.projectKey>sahabpardaz_elasticsearch-rule</sonar.projectKey>
     </properties>
 
     <dependencies>

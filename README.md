@@ -1,5 +1,5 @@
 # Elasticsearch Rule
-[![Tests](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml/badge.svg?branch=es-7)](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml)
+[![Tests](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml/badge.svg?branch=master)](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=coverage)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)

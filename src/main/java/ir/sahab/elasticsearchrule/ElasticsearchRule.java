@@ -9,11 +9,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateRequest;
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse;
 import org.elasticsearch.cli.Terminal;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -64,7 +66,11 @@ public class ElasticsearchRule extends ExternalResource {
         // ReindexPlugin is necessary for making "delete by query" available.
         server = new TestNode(settings, Arrays.asList(Netty4Plugin.class, ReindexPlugin.class));
         server.start();
-        server.client().admin().cluster().prepareHealth().setWaitForGreenStatus().execute().get();
+        ClusterHealthResponse clusterHealthResponse = server.client().admin().cluster().prepareHealth()
+                .setWaitForGreenStatus().get();
+        if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+            throw new AssertionError("The state of the cluster did not change to green.");
+        }
 
         // Create a transport client ready to be used in tests.
         transportAddress = server.injector().getInstance(TransportService.class).boundAddress().publishAddress();
@@ -74,7 +80,7 @@ public class ElasticsearchRule extends ExternalResource {
         // By default, every index that is created has 5 shards and 1 replica.
         // However, the rule provides only a single node cluster. In order to change them,
         // a template is created that is used by default for all indexes created.
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("default-junit-rule-remplate");
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("default-junit-rule-template");
         request.patterns(Collections.singletonList("*"));
         request.order(-1);
         request.settings(Settings.builder()
