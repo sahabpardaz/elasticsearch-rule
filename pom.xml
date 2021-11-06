@@ -6,11 +6,19 @@
 
     <groupId>ir.sahab</groupId>
     <artifactId>elasticsearch-rule</artifactId>
-    <version>2.0.0</version>
+    <version>2.1.0</version>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <elasticsearch.version>7.12.0</elasticsearch.version>
+        <cleanup.version>1.0.1</cleanup.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>sahabpardaz</sonar.organization>
@@ -61,6 +69,12 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
             <version>4.4.12</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.sahabpardaz</groupId>
+            <artifactId>clean-up</artifactId>
+            <version>${cleanup.version}</version>
         </dependency>
 
         <dependency>
