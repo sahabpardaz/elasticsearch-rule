@@ -36,7 +36,9 @@ public class ElasticsearchRuleTest {
     @Test
     public void testClient() {
         String indexName = "twitter";
-        createIndex(transportClient, indexName);
+        CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
+        Assert.assertTrue(createIndexResponse.isAcknowledged());
+        elasticsearchRule.waitForGreenStatus();
 
         String json = "{"
                 + "    \"user\":\"kimchy\","
@@ -73,17 +75,13 @@ public class ElasticsearchRuleTest {
             internalClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
 
             String indexName = "twitter2";
-            createIndex(internalClient, indexName);
+            CreateIndexResponse createIndexResponse = internalClient.admin().indices().prepareCreate(indexName).get();
+            Assert.assertTrue(createIndexResponse.isAcknowledged());
+            ClusterHealthResponse clusterHealthResponse = internalClient.admin().cluster().prepareHealth()
+                    .setWaitForGreenStatus().get();
+            if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+                throw new AssertionError("The state of the cluster did not change to green.");
+            }
         }
-    }
-
-    private void createIndex(TransportClient client, String indexName) {
-        CreateIndexResponse createIndexResponse = client.admin().indices().prepareCreate(indexName).get();
-        Assert.assertTrue(createIndexResponse.isAcknowledged());
-
-        ClusterHealthResponse clusterHealthResponse =
-                client.admin().cluster().prepareHealth().setWaitForGreenStatus().get();
-        Assert.assertEquals("The state of the cluster did not change to green.",
-                ClusterHealthStatus.GREEN, clusterHealthResponse.getStatus());
     }
 }

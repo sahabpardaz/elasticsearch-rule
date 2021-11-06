@@ -130,4 +130,12 @@ public class ElasticsearchRule extends ExternalResource {
     public String getAddress() {
         return transportAddress.toString();
     }
+
+    public void waitForGreenStatus() {
+        ClusterHealthResponse clusterHealthResponse = transportClient.admin().cluster().prepareHealth()
+                .setWaitForGreenStatus().get();
+        if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+            throw new AssertionError("The state of the cluster did not change to green.");
+        }
+    }
 }
