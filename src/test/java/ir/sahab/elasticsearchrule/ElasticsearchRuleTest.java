@@ -2,11 +2,12 @@ package ir.sahab.elasticsearchrule;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -31,19 +32,20 @@ public class ElasticsearchRuleTest {
     public static void setUpClass() {
         transportClient = elasticsearchRule.getTransportClient();
     }
-    
+
     @Test
     public void testClient() {
         String indexName = "twitter";
         CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
         Assert.assertTrue(createIndexResponse.isAcknowledged());
-        transportClient.admin().cluster().prepareHealth().setWaitForYellowStatus().get();
+        elasticsearchRule.waitForGreenStatus();
+
         String json = "{"
                 + "    \"user\":\"kimchy\","
                 + "    \"postDate\":\"2013-01-30\","
                 + "    \"message\":\"trying out Elasticsearch\""
                 + "}";
-        IndexResponse response = transportClient.prepareIndex("twitter", "tweet")
+        IndexResponse response = transportClient.prepareIndex(indexName, "tweet")
                 .setSource(json, XContentType.JSON)
                 .get();
         Assert.assertEquals(RestStatus.CREATED, response.status());
@@ -66,14 +68,20 @@ public class ElasticsearchRuleTest {
         try {
             elasticsearchInetAddress = InetAddress.getByName(elasticsearchHost);
         } catch (UnknownHostException e) {
-            throw new AssertionError("Cannot get the elasticsearch server address " + elasticsearchHost + ".", e);
+            throw new AssertionError("Cannot get the elasticsearch server address: " + elasticsearchHost, e);
         }
         Settings settings = Settings.builder().put("cluster.name", ELASTICSEARCH_CLUSTER_NAME).build();
-        TransportClient internalTransportClient = new PreBuiltTransportClient(settings);
-        internalTransportClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
-        String indexName = "twitter2";
-        CreateIndexResponse createIndexResponse = internalTransportClient.admin().indices().prepareCreate(indexName).get();
-        Assert.assertTrue(createIndexResponse.isAcknowledged());
-        internalTransportClient.close();
+        try (TransportClient internalClient = new PreBuiltTransportClient(settings)) {
+            internalClient.addTransportAddress(new TransportAddress(elasticsearchInetAddress, elasticsearchPort));
+
+            String indexName = "twitter2";
+            CreateIndexResponse createIndexResponse = internalClient.admin().indices().prepareCreate(indexName).get();
+            Assert.assertTrue(createIndexResponse.isAcknowledged());
+            ClusterHealthResponse clusterHealthResponse = internalClient.admin().cluster().prepareHealth()
+                    .setWaitForGreenStatus().get();
+            if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+                throw new AssertionError("The state of the cluster did not change to green.");
+            }
+        }
     }
 }
