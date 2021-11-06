@@ -1,17 +1,25 @@
 package ir.sahab.elasticsearchrule;
 
+import ir.sahab.cleanup.Cleanups;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Random;
+import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
 import org.apache.http.HttpHost;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
@@ -30,9 +38,11 @@ public class ElasticsearchRule extends ExternalResource {
 
     private static final String DEFAULT_HOST = "localhost";
 
+    private final int port;
+
+    private Path ruleTempDirectory;
     private Node server;
     private RestHighLevelClient restHighLevelClient;
-    private int port;
 
     public ElasticsearchRule() {
         this(anOpenPort());
@@ -44,13 +54,15 @@ public class ElasticsearchRule extends ExternalResource {
 
     @Override
     protected void before() throws IOException, NodeValidationException, ExecutionException, InterruptedException {
+        ruleTempDirectory = Files.createTempDirectory("elasticsearch-junit-rule");
+
         // Set up a setting for Elasticsearch server node.
         Settings.Builder builder = Settings.builder();
         builder.put(NetworkModule.TRANSPORT_TYPE_KEY, Netty4Plugin.NETTY_TRANSPORT_NAME);
         builder.put("node.id.seed", 0L);
-        builder.put("node.name", "node" + new Random().nextInt(10000));
-        builder.put(Environment.PATH_DATA_SETTING.getKey(), Files.createTempDirectory("elastic.data"));
-        builder.put(Environment.PATH_HOME_SETTING.getKey(), Files.createTempDirectory("elastic.home"));
+        builder.put("node.name", "node1");
+        builder.put(Environment.PATH_DATA_SETTING.getKey(), ruleTempDirectory.resolve("elastic-data"));
+        builder.put(Environment.PATH_HOME_SETTING.getKey(), ruleTempDirectory.resolve("elastic-home"));
         builder.put(ClusterName.CLUSTER_NAME_SETTING.getKey(), "cluster-name");
         builder.put("discovery.type", "single-node");
         builder.put("http.port", port);
@@ -61,28 +73,49 @@ public class ElasticsearchRule extends ExternalResource {
         // ReindexPlugin is necessary for making "delete by query" available.
         server = new TestNode(settings, Arrays.asList(Netty4Plugin.class, ReindexPlugin.class));
         server.start();
-        server.client().admin().cluster().prepareHealth().setWaitForYellowStatus().execute().get();
+        ClusterHealthResponse clusterHealthResponse = server.client().admin().cluster().prepareHealth()
+                .setWaitForGreenStatus().get();
+        if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+            throw new AssertionError("The state of the cluster did not change to green.");
+        }
 
         // Create a REST high level client ready to be used in tests.
         restHighLevelClient = new RestHighLevelClient(RestClient.builder(
                 new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)));
+
+        // By default, every index that is created has 1 shards and 1 replica.
+        // However, the rule provides only a single node cluster. In order to change them,
+        // a template is created that is used by default for all indexes created.
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("default-junit-rule-template");
+        request.patterns(Collections.singletonList("*"));
+        request.order(-1);
+        request.settings(Settings.builder()
+                .put("index.number_of_shards", 1)
+                .put("index.number_of_replicas", 0)
+        );
+        AcknowledgedResponse putTemplateResponse = restHighLevelClient.indices()
+                .putTemplate(request, RequestOptions.DEFAULT);
+        if (!putTemplateResponse.isAcknowledged()) {
+            throw new AssertionError("Adding the default template has encountered an error.");
+        }
     }
 
     @Override
     protected void after() {
         try {
-            if (restHighLevelClient != null) {
-                restHighLevelClient.close();
-            }
+            Cleanups.of(restHighLevelClient, server)
+                    .and(() -> Files.walk(ruleTempDirectory)
+                            .sorted(Comparator.reverseOrder())
+                            .forEach(path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (IOException e) {
+                                    throw new AssertionError("Unable to remove temporary file: " + path, e);
+                                }
+                            }))
+                    .doAll();
         } catch (IOException e) {
-            throw new AssertionError("Cannot close the REST client.");
-        }
-        try {
-            if (server != null) {
-                server.close();
-            }
-        } catch (IOException e) {
-            throw new AssertionError("Cannot close the server.");
+            throw new AssertionError("Unable to close resources", e);
         }
     }
 
@@ -90,11 +123,12 @@ public class ElasticsearchRule extends ExternalResource {
      * A wrapper class for class org.elasticsearch.node.Node to make its constructor public.
      */
     public static class TestNode extends Node {
+
         private static final String DEFAULT_NODE_NAME = "mynode";
 
         public TestNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
-			super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, Collections.emptyMap(), null,
-					() -> DEFAULT_NODE_NAME), classpathPlugins, false);
+            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, Collections.emptyMap(), null,
+                    () -> DEFAULT_NODE_NAME), classpathPlugins, false);
         }
     }
 
@@ -116,5 +150,20 @@ public class ElasticsearchRule extends ExternalResource {
 
     public int getPort() {
         return this.port;
+    }
+
+    public void waitForGreenStatus(String... indices) {
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indices);
+        clusterHealthRequest.waitForGreenStatus();
+        try {
+            ClusterHealthResponse clusterHealthResponse = restHighLevelClient.cluster()
+                    .health(clusterHealthRequest, RequestOptions.DEFAULT);
+            if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+                throw new AssertionError("The state of the indices did not change to green: "
+                        + Arrays.toString(indices));
+            }
+        } catch (IOException e) {
+            throw new AssertionError("Unable to retrieve status of indices: " + Arrays.toString(indices), e);
+        }
     }
 }

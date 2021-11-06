@@ -2,7 +2,6 @@ package ir.sahab.elasticsearchrule;
 
 import java.io.IOException;
 import org.apache.http.HttpHost;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
@@ -41,10 +40,7 @@ public class ElasticsearchRuleTest {
         CreateIndexResponse createIndexResponse = restHighLevelClient.indices().create(createIndexRequest,
                 RequestOptions.DEFAULT);
         Assert.assertTrue(createIndexResponse.isAcknowledged());
-
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indexName);
-        clusterHealthRequest.waitForYellowStatus();
-        restHighLevelClient.cluster().health(clusterHealthRequest, RequestOptions.DEFAULT);
+        elasticsearchRule.waitForGreenStatus(indexName);
 
         IndexRequest indexRequest = new IndexRequest(indexName);
         indexRequest.id("1");
@@ -75,7 +71,7 @@ public class ElasticsearchRuleTest {
         String elasticsearchHost = elasticsearchRule.getHost();
         int elasticsearchPort = elasticsearchRule.getPort();
         try (RestHighLevelClient anotherRestHighLevelClient = new RestHighLevelClient(RestClient.builder(
-            new HttpHost(elasticsearchHost, elasticsearchPort, "http")))) {
+                new HttpHost(elasticsearchHost, elasticsearchPort, "http")))) {
             String indexName = "twitter2";
             CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
             CreateIndexResponse createIndexResponse = anotherRestHighLevelClient.indices().create(createIndexRequest,
