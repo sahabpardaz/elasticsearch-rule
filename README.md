@@ -55,7 +55,7 @@ public static void setUpClass() {
 }
 ```
 
-## JUnit 5
+## JUnit 5 Support
 
 Sample usage:
 
