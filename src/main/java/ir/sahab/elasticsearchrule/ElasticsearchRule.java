@@ -1,6 +1,32 @@
 package ir.sahab.elasticsearchrule;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.HealthStatus;
+import co.elastic.clients.elasticsearch.cat.HealthRequest;
+import co.elastic.clients.elasticsearch.cluster.HealthResponse;
+import co.elastic.clients.elasticsearch.indices.PutTemplateRequest;
+import co.elastic.clients.elasticsearch.indices.PutTemplateResponse;
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 import ir.sahab.cleanup.Cleanups;
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
+import org.elasticsearch.common.network.NetworkModule;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.node.InternalSettingsPreparer;
+import org.elasticsearch.node.Node;
+import org.elasticsearch.node.NodeValidationException;
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.reindex.ReindexPlugin;
+import org.elasticsearch.transport.Netty4Plugin;
+import org.junit.rules.ExternalResource;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Files;
@@ -10,26 +36,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.PutIndexTemplateRequest;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.health.ClusterHealthStatus;
-import org.elasticsearch.common.network.NetworkModule;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.env.Environment;
-import org.elasticsearch.index.reindex.ReindexPlugin;
-import org.elasticsearch.node.InternalSettingsPreparer;
-import org.elasticsearch.node.Node;
-import org.elasticsearch.node.NodeValidationException;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.transport.Netty4Plugin;
-import org.junit.rules.ExternalResource;
 
 /**
  * A JUnit rule for starting an elasticsearch server on the local machine.
@@ -42,7 +48,9 @@ public class ElasticsearchRule extends ExternalResource {
 
     private Path ruleTempDirectory;
     private Node server;
-    private RestHighLevelClient restHighLevelClient;
+    //    private RestHighLevelClient restHighLevelClient;
+    private ElasticsearchClient elasticsearchClient;
+    private ElasticsearchTransport transport;
 
     public ElasticsearchRule() {
         this(anOpenPort());
@@ -50,6 +58,14 @@ public class ElasticsearchRule extends ExternalResource {
 
     public ElasticsearchRule(int port) {
         this.port = port;
+    }
+
+    public static Integer anOpenPort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new AssertionError("Unable to find an open port.", e);
+        }
     }
 
     @Override
@@ -80,22 +96,27 @@ public class ElasticsearchRule extends ExternalResource {
         }
 
         // Create a REST high level client ready to be used in tests.
-        restHighLevelClient = new RestHighLevelClient(RestClient.builder(
-                new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)));
+
+        // Create the low-level client
+        RestClient restClient = RestClient.builder(
+                new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)).build();
+        transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        elasticsearchClient = new ElasticsearchClient(transport);
 
         // By default, every index that is created has 1 shards and 1 replica.
         // However, the rule provides only a single node cluster. In order to change them,
         // a template is created that is used by default for all indexes created.
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("default-junit-rule-template");
-        request.patterns(Collections.singletonList("*"));
-        request.order(-1);
-        request.settings(Settings.builder()
-                .put("index.number_of_shards", 1)
-                .put("index.number_of_replicas", 0)
-        );
-        AcknowledgedResponse putTemplateResponse = restHighLevelClient.indices()
-                .putTemplate(request, RequestOptions.DEFAULT);
-        if (!putTemplateResponse.isAcknowledged()) {
+
+        final PutTemplateRequest request = new PutTemplateRequest.Builder()
+                .name("default-junit-rule-template")
+                .indexPatterns("*")
+                .order(-1)
+                .settings("index.number_of_shards", JsonData.of(1))
+                .settings("index.number_of_replicas", JsonData.of(0))
+                .build();
+        final PutTemplateResponse putTemplateResponse = elasticsearchClient.indices()
+                .putTemplate(request);
+        if (!putTemplateResponse.acknowledged()) {
             throw new AssertionError("Adding the default template has encountered an error.");
         }
     }
@@ -103,7 +124,7 @@ public class ElasticsearchRule extends ExternalResource {
     @Override
     protected void after() {
         try {
-            Cleanups.of(restHighLevelClient, server)
+            Cleanups.of(transport, server)
                     .and(() -> Files.walk(ruleTempDirectory)
                             .sorted(Comparator.reverseOrder())
                             .forEach(path -> {
@@ -119,29 +140,8 @@ public class ElasticsearchRule extends ExternalResource {
         }
     }
 
-    /**
-     * A wrapper class for class org.elasticsearch.node.Node to make its constructor public.
-     */
-    public static class TestNode extends Node {
-
-        private static final String DEFAULT_NODE_NAME = "mynode";
-
-        public TestNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, Collections.emptyMap(), null,
-                    () -> DEFAULT_NODE_NAME), classpathPlugins, false);
-        }
-    }
-
-    public static Integer anOpenPort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new AssertionError("Unable to find an open port.", e);
-        }
-    }
-
-    public RestHighLevelClient getRestHighLevelClient() {
-        return this.restHighLevelClient;
+    public ElasticsearchClient getElasticsearchClient() {
+        return this.elasticsearchClient;
     }
 
     public String getHost() {
@@ -153,17 +153,28 @@ public class ElasticsearchRule extends ExternalResource {
     }
 
     public void waitForGreenStatus(String... indices) {
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indices);
-        clusterHealthRequest.waitForGreenStatus();
+        HealthRequest clusterHealthRequest = new HealthRequest.Builder().build();
         try {
-            ClusterHealthResponse clusterHealthResponse = restHighLevelClient.cluster()
-                    .health(clusterHealthRequest, RequestOptions.DEFAULT);
-            if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+            final HealthResponse healthResponse = elasticsearchClient.cluster().health();
+            if (healthResponse.status() != HealthStatus.Green) {
                 throw new AssertionError("The state of the indices did not change to green: "
                         + Arrays.toString(indices));
             }
         } catch (IOException e) {
             throw new AssertionError("Unable to retrieve status of indices: " + Arrays.toString(indices), e);
+        }
+    }
+
+    /**
+     * A wrapper class for class org.elasticsearch.node.Node to make its constructor public.
+     */
+    public static class TestNode extends Node {
+
+        private static final String DEFAULT_NODE_NAME = "mynode";
+
+        public TestNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
+            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, Collections.emptyMap(), null,
+                    () -> DEFAULT_NODE_NAME), classpathPlugins, false);
         }
     }
 }

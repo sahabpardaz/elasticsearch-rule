@@ -1,15 +1,15 @@
 package ir.sahab.elasticsearchrule;
 
-import static ir.sahab.elasticsearchrule.ElasticsearchRule.anOpenPort;
-import static org.junit.Assert.assertEquals;
-
-import java.io.IOException;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.MainResponse;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.InfoResponse;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+
+import java.io.IOException;
+
+import static ir.sahab.elasticsearchrule.ElasticsearchRule.anOpenPort;
+import static org.junit.Assert.assertEquals;
 
 public class ElasticsearchRuleCustomPortTest {
 
@@ -18,11 +18,11 @@ public class ElasticsearchRuleCustomPortTest {
     @ClassRule
     public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule(customPort);
 
-    private static RestHighLevelClient restHighLevelClient;
+    private static ElasticsearchClient elasticsearchClient;
 
     @BeforeClass
     public static void setUpClass() {
-        restHighLevelClient = elasticsearchRule.getRestHighLevelClient();
+        elasticsearchClient = elasticsearchRule.getElasticsearchClient();
     }
 
     @Test
@@ -30,8 +30,8 @@ public class ElasticsearchRuleCustomPortTest {
         int elasticsearchPort = elasticsearchRule.getPort();
         assertEquals(customPort, elasticsearchPort);
 
-        MainResponse response = restHighLevelClient.info(RequestOptions.DEFAULT);
+        InfoResponse response = elasticsearchClient.info();
 
-        assertEquals("7.12.0", response.getVersion().getNumber());
+        assertEquals("7.17.5", response.version().number());
     }
 }
