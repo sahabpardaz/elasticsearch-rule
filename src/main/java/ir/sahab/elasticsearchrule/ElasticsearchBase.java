@@ -2,7 +2,6 @@ package ir.sahab.elasticsearchrule;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.HealthStatus;
-import co.elastic.clients.elasticsearch.cat.HealthRequest;
 import co.elastic.clients.elasticsearch.cluster.HealthResponse;
 import co.elastic.clients.elasticsearch.indices.PutTemplateRequest;
 import co.elastic.clients.elasticsearch.indices.PutTemplateResponse;
@@ -132,7 +131,6 @@ class ElasticsearchBase {
     }
 
     public void waitForGreenStatus(String... indices) {
-        HealthRequest clusterHealthRequest = new HealthRequest.Builder().build();
         try {
             final HealthResponse healthResponse = elasticsearchClient.cluster().health();
             if (healthResponse.status() != HealthStatus.Green) {

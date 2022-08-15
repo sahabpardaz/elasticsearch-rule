@@ -12,7 +12,7 @@ import static ir.sahab.elasticsearchrule.ElasticsearchBase.anOpenPort;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
-public class ElasticsearchExtensionCustomPortTest {
+class ElasticsearchExtensionCustomPortTest {
     private static final int customPort = anOpenPort();
     @RegisterExtension
     static ElasticsearchExtension elasticsearchExtension = new ElasticsearchExtension(customPort);
@@ -24,7 +24,7 @@ public class ElasticsearchExtensionCustomPortTest {
     }
 
     @Test
-    public void testPort() throws IOException {
+    void testPort() throws IOException {
         int elasticsearchPort = elasticsearchExtension.getPort();
         assertEquals(customPort, elasticsearchPort);
 
