@@ -8,7 +8,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static ir.sahab.elasticsearchrule.ElasticsearchRule.anOpenPort;
+import static ir.sahab.elasticsearchrule.ElasticsearchBase.anOpenPort;
 import static org.junit.Assert.assertEquals;
 
 public class ElasticsearchRuleCustomPortTest {
