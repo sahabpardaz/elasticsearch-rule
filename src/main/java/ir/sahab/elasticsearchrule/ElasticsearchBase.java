@@ -15,6 +15,7 @@ import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.node.InternalSettingsPreparer;
 import org.elasticsearch.node.Node;
+import org.elasticsearch.node.NodeValidationException;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.elasticsearch.transport.TransportService;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -43,7 +45,8 @@ class ElasticsearchBase {
         this.clusterName = clusterName;
     }
 
-    protected void setupElasticsearchServer() throws Exception {
+    protected void setupElasticsearchServer()
+            throws IOException, NodeValidationException, ExecutionException, InterruptedException {
         lock.lock();
         try {
             tempDirectory = Files.createTempDirectory("elasticsearch-junit-extension");
