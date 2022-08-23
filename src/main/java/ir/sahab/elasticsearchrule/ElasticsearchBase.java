@@ -45,7 +45,7 @@ class ElasticsearchBase {
         this.clusterName = clusterName;
     }
 
-    @SuppressWarnings("java:S5443")
+    @SuppressWarnings("java:S2093")
     protected void setup()
             throws IOException, NodeValidationException, ExecutionException, InterruptedException {
         // In case of concurrent tests this lock protects Elasticsearch creation and teardown
