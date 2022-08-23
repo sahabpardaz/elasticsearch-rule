@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-class ElasticsearchBase {
+abstract class ElasticsearchBase {
 
     private final Lock lock = new ReentrantLock();
     private final String clusterName;
@@ -41,7 +41,7 @@ class ElasticsearchBase {
     private TransportAddress transportAddress;
     private Node server;
 
-    ElasticsearchBase(String clusterName) {
+    protected ElasticsearchBase(String clusterName) {
         this.clusterName = clusterName;
     }
 

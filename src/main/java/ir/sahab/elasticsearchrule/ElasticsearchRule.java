@@ -1,39 +1,47 @@
 package ir.sahab.elasticsearchrule;
 
-import org.elasticsearch.client.transport.TransportClient;
-import org.junit.rules.ExternalResource;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.MultipleFailureException;
+import org.junit.runners.model.Statement;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A JUnit 4 {@link org.junit.rules.TestRule} for starting an elasticsearch server on the local machine.
  */
-public class ElasticsearchRule extends ExternalResource {
-
-    private final ElasticsearchBase base;
+public class ElasticsearchRule extends ElasticsearchBase implements TestRule {
 
     public ElasticsearchRule(String clusterName) {
-        base = new ElasticsearchBase(clusterName);
+        super(clusterName);
     }
 
-    @Override
-    protected void before() throws Exception {
-        base.setup();
+    public Statement apply(Statement base, Description description) {
+        return statement(base);
     }
 
-    @Override
-    protected void after() {
-        base.teardown();
-    }
+    // copied from org.junit.rules.ExternalResource
+    private Statement statement(final Statement base) {
+        return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                setup();
 
-    public TransportClient getTransportClient() {
-        return base.getTransportClient();
+                List<Throwable> errors = new ArrayList<Throwable>();
+                try {
+                    base.evaluate();
+                } catch (Throwable t) {
+                    errors.add(t);
+                } finally {
+                    try {
+                        teardown();
+                    } catch (Throwable t) {
+                        errors.add(t);
+                    }
+                }
+                MultipleFailureException.assertEmpty(errors);
+            }
+        };
     }
-
-    public String getAddress() {
-        return base.getAddress();
-    }
-
-    public void waitForGreenStatus() {
-        base.waitForGreenStatus();
-    }
-
 }
