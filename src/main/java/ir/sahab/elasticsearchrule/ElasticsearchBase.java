@@ -45,8 +45,10 @@ class ElasticsearchBase {
         this.clusterName = clusterName;
     }
 
-    protected void setupElasticsearchServer()
+    @SuppressWarnings("java:S5443")
+    protected void setup()
             throws IOException, NodeValidationException, ExecutionException, InterruptedException {
+        // In case of concurrent tests this lock protects Elasticsearch creation and teardown
         lock.lock();
         try {
             tempDirectory = Files.createTempDirectory("elasticsearch-junit-extension");

@@ -34,7 +34,6 @@ class ElasticsearchExtensionTest {
         transportClient = elasticsearchExtension.getTransportClient();
     }
 
-
     @Test
     void testClient() {
         String indexName = "twitter";

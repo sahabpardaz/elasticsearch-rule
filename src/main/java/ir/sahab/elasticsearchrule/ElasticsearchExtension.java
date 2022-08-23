@@ -5,6 +5,9 @@ import org.junit.jupiter.api.extension.*;
 
 /**
  * A JUnit 5 Extension for starting an elasticsearch server instance on the local machine.
+ * By default, lifecycle of this extension is {@link org.junit.jupiter.api.TestInstance.Lifecycle#PER_CLASS}
+ * you can specify it with this constructor
+ * {@link ElasticsearchExtension#ElasticsearchExtension(String, TestInstance.Lifecycle)}
  */
 public class ElasticsearchExtension extends ElasticsearchBase
         implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback {
@@ -31,7 +34,7 @@ public class ElasticsearchExtension extends ElasticsearchBase
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
         if (lifecycle == TestInstance.Lifecycle.PER_CLASS) {
-            setupElasticsearchServer();
+            setup();
         }
     }
 
@@ -45,7 +48,7 @@ public class ElasticsearchExtension extends ElasticsearchBase
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         if (lifecycle == TestInstance.Lifecycle.PER_METHOD) {
-            setupElasticsearchServer();
+            setup();
         }
     }
 }

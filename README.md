@@ -1,4 +1,4 @@
-# Elasticsearch Rule
+# Elasticsearch JUnit Rule and Extension
 
 [![Tests](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml/badge.svg?branch=master)](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=coverage)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
@@ -10,9 +10,13 @@
 [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=sqale_index)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=alert_status)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 
-A JUnit rule for starting an elasticsearch server on the local machine.
+This library provides Junit 4 Rule and Junit 5 Extension for starting an elasticsearch server on the local machine.
 
-## Sample Usage
+## JUnit 4 Support
+
+With JUnit 4 you can declare and use Elasticsearch rule as follows:
+
+### Sample Usage
 
 ```java
 private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
@@ -57,24 +61,24 @@ public static void setUpClass() {
 
 ## JUnit 5 Support
 
-Sample usage:
+In case of using Junit 5, you can use ElasticsearchExtension like this:
 
 ```java
-private static final String ELASTICSEARCH_CLUSTER_NAME="elasticsearch";
+private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
 
 @RegisterExtension
-static ElasticsearchExtension elasticsearchExtension=new ElasticsearchExtension(ELASTICSEARCH_CLUSTER_NAME);
+static ElasticsearchExtension elasticsearchExtension = new ElasticsearchExtension(ELASTICSEARCH_CLUSTER_NAME);
 private static TransportClient transportClient;
 
 @BeforeAll
 static void setUpClass(){
-        transportClient=elasticsearchExtension.getTransportClient();
+        transportClient = elasticsearchExtension.getTransportClient();
 }
 
 @Test
 public void testClient(){
-        String indexName="twitter";
-        CreateIndexResponse createIndexResponse=transportClient.admin().indices().prepareCreate(indexName).get();
+        String indexName = "twitter";
+        CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
         Assert.assertTrue(createIndexResponse.isAcknowledged());
 }
 ```

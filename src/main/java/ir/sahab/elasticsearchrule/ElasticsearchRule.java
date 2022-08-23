@@ -16,7 +16,7 @@ public class ElasticsearchRule extends ExternalResource {
 
     @Override
     protected void before() throws Exception {
-        base.setupElasticsearchServer();
+        base.setup();
     }
 
     @Override
