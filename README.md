@@ -1,4 +1,5 @@
-# Elasticsearch Rule
+# Elasticsearch JUnit Rule and Extension
+
 [![Tests](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml/badge.svg?branch=master)](https://github.com/sahabpardaz/elasticsearch-rule/actions/workflows/maven.yml)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=coverage)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
@@ -9,9 +10,13 @@
 [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=sqale_index)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=sahabpardaz_elasticsearch-rule&metric=alert_status)](https://sonarcloud.io/dashboard?id=sahabpardaz_elasticsearch-rule)
 
-A JUnit rule for starting an elasticsearch server on the local machine.
+This library provides Junit 4 Rule and Junit 5 Extension for starting an elasticsearch server on the local machine.
 
-## Sample Usage
+## JUnit 4 Support
+
+With JUnit 4 you can declare and use Elasticsearch rule as follows:
+
+### Sample Usage
 
 ```java
 private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
@@ -33,7 +38,9 @@ public void testClient() {
     Assert.assertTrue(createIndexResponse.isAcknowledged());
 }
 ```
+
 It is also possible to get the network address of the Elasticsearch server and construct the TransportClient:
+
 ```java
 @BeforeClass
 public static void setUpClass() {
@@ -52,6 +59,35 @@ public static void setUpClass() {
 }
 ```
 
+## JUnit 5 Support
+
+In case of using Junit 5, you can use ElasticsearchExtension like this:
+
+```java
+private static final String ELASTICSEARCH_CLUSTER_NAME = "elasticsearch";
+
+@RegisterExtension
+static ElasticsearchExtension elasticsearchExtension = new ElasticsearchExtension(ELASTICSEARCH_CLUSTER_NAME);
+private static TransportClient transportClient;
+
+@BeforeAll
+static void setUpClass(){
+        transportClient = elasticsearchExtension.getTransportClient();
+}
+
+@Test
+public void testClient(){
+        String indexName = "twitter";
+        CreateIndexResponse createIndexResponse = transportClient.admin().indices().prepareCreate(indexName).get();
+        Assert.assertTrue(createIndexResponse.isAcknowledged());
+}
+```
+
 ## Add it to your project
-You can refer to this library by either of java build systems (Maven, Gradle, SBT or Leiningen) using snippets from this jitpack link:
+
+You can refer to this library by either of java build systems (Maven, Gradle, SBT or Leiningen) using snippets from this
+jitpack link:
 [![](https://jitpack.io/v/sahabpardaz/elasticsearch-rule.svg)](https://jitpack.io/#sahabpardaz/elasticsearch-rule)
+
+JUnit 4 and 5 dependencies are marked as optional, so you need to provide JUnit 4 or 5 dependency
+(based on what version you need, and you use) in you project to make it work.
