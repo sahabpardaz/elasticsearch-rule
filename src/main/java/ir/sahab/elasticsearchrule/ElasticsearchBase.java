@@ -32,6 +32,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Base class for creating an embeddable Elasticsearch server.
+ * It also provides some methods for easier access to the server Node.
+ */
 abstract class ElasticsearchBase {
 
     private final Lock lock = new ReentrantLock();
