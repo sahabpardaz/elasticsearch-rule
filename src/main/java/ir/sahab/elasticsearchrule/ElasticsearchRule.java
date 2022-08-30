@@ -1,50 +1,51 @@
 package ir.sahab.elasticsearchrule;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import org.elasticsearch.node.NodeValidationException;
-import org.junit.rules.ExternalResource;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.MultipleFailureException;
+import org.junit.runners.model.Statement;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A JUnit rule for starting an elasticsearch server on the local machine.
  */
-public class ElasticsearchRule extends ExternalResource {
-
-    private final ElasticsearchBase base;
+public class ElasticsearchRule extends ElasticsearchBase implements TestRule {
 
     public ElasticsearchRule() {
-        base = new ElasticsearchBase();
+        super();
     }
 
     public ElasticsearchRule(int port) {
-        base = new ElasticsearchBase(port);
+        super(port);
     }
 
     @Override
-    protected void before() throws IOException, NodeValidationException {
-        base.setup();
+    public Statement apply(Statement base, Description description) {
+        return statement(base);
     }
 
-    @Override
-    protected void after() {
-        base.teardown();
-    }
+    private Statement statement(final Statement base) {
+        return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                setup();
 
-    public ElasticsearchClient getElasticsearchClient() {
-        return base.getElasticsearchClient();
+                List<Throwable> errors = new ArrayList<>();
+                try {
+                    base.evaluate();
+                } catch (Throwable t) {
+                    errors.add(t);
+                } finally {
+                    try {
+                        teardown();
+                    } catch (Throwable t) {
+                        errors.add(t);
+                    }
+                }
+                MultipleFailureException.assertEmpty(errors);
+            }
+        };
     }
-
-    public String getHost() {
-        return base.getHost();
-    }
-
-    public int getPort() {
-        return base.getPort();
-    }
-
-    public void waitForGreenStatus(String... indices) {
-        base.waitForGreenStatus(indices);
-    }
-
 }

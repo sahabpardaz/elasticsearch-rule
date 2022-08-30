@@ -33,14 +33,21 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-class ElasticsearchBase {
+/**
+ * Base class for creating an embeddable Elasticsearch server.
+ * It also provides some methods for easier access to the server Node.
+ */
+abstract class ElasticsearchBase {
 
     private static final String DEFAULT_HOST = "localhost";
 
+    private final Lock lock = new ReentrantLock();
     private final int port;
 
-    private Path ruleTempDirectory;
+    private Path tempDirectory;
     private Node server;
     private ElasticsearchClient elasticsearchClient;
     private ElasticsearchTransport transport;
@@ -62,50 +69,57 @@ class ElasticsearchBase {
     }
 
     void setup() throws IOException, NodeValidationException {
-        ruleTempDirectory = Files.createTempDirectory("elasticsearch-junit-rule");
+        // In case of concurrent tests this lock protects Elasticsearch creation and teardown
+        lock.lock();
+        try {
+            tempDirectory = Files.createTempDirectory("elasticsearch-junit-rule");
 
-        // Set up a setting for Elasticsearch server node.
-        Settings.Builder builder = Settings.builder();
-        builder.put(NetworkModule.TRANSPORT_TYPE_KEY, Netty4Plugin.NETTY_TRANSPORT_NAME);
-        builder.put("node.id.seed", 0L);
-        builder.put("node.name", "node1");
-        builder.put(Environment.PATH_DATA_SETTING.getKey(), ruleTempDirectory.resolve("elastic-data"));
-        builder.put(Environment.PATH_HOME_SETTING.getKey(), ruleTempDirectory.resolve("elastic-home"));
-        builder.put(ClusterName.CLUSTER_NAME_SETTING.getKey(), "cluster-name");
-        builder.put("discovery.type", "single-node");
-        builder.put("http.port", port);
-        Settings settings = builder.build();
+            // Set up a setting for Elasticsearch server node.
+            Settings.Builder builder = Settings.builder();
+            builder.put(NetworkModule.TRANSPORT_TYPE_KEY, Netty4Plugin.NETTY_TRANSPORT_NAME);
+            builder.put("node.id.seed", 0L);
+            builder.put("node.name", "node1");
+            builder.put(Environment.PATH_DATA_SETTING.getKey(), tempDirectory.resolve("elastic-data"));
+            builder.put(Environment.PATH_HOME_SETTING.getKey(), tempDirectory.resolve("elastic-home"));
+            builder.put(ClusterName.CLUSTER_NAME_SETTING.getKey(), "cluster-name");
+            builder.put("discovery.type", "single-node");
+            builder.put("http.port", port);
+            Settings settings = builder.build();
 
-        // Create the Elasticsearch server node and running it.
-        // Netty4Plugin is necessary for making a TransportClient.
-        // ReindexPlugin is necessary for making "delete by query" available.
-        server = new TestNode(settings, Arrays.asList(Netty4Plugin.class, ReindexPlugin.class));
-        server.start();
-        ClusterHealthResponse clusterHealthResponse = server.client().admin().cluster().prepareHealth().setWaitForGreenStatus().get();
-        if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
-            throw new AssertionError("The state of the cluster did not change to green.");
-        }
+            // Create the Elasticsearch server node and running it.
+            // Netty4Plugin is necessary for making a TransportClient.
+            // ReindexPlugin is necessary for making "delete by query" available.
+            server = new TestNode(settings, Arrays.asList(Netty4Plugin.class, ReindexPlugin.class));
+            server.start();
+            ClusterHealthResponse clusterHealthResponse = server.client().admin().cluster().prepareHealth().setWaitForGreenStatus().get();
+            if (clusterHealthResponse.getStatus() != ClusterHealthStatus.GREEN) {
+                throw new AssertionError("The state of the cluster did not change to green.");
+            }
 
-        // Create a ElasticSearch client ready to be used in tests.
+            // Create a ElasticSearch client ready to be used in tests.
 
-        RestClient restClient = RestClient.builder(new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)).build();
-        transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
-        elasticsearchClient = new ElasticsearchClient(transport);
+            RestClient restClient = RestClient.builder(new HttpHost(DEFAULT_HOST, port, HttpHost.DEFAULT_SCHEME_NAME)).build();
+            transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+            elasticsearchClient = new ElasticsearchClient(transport);
 
-        // By default, every index that is created has 1 shards and 1 replica.
-        // However, the rule provides only a single node cluster. In order to change them,
-        // a template is created that is used by default for all indexes created.
+            // By default, every index that is created has 1 shards and 1 replica.
+            // However, the rule provides only a single node cluster. In order to change them,
+            // a template is created that is used by default for all indexes created.
 
-        final PutTemplateRequest request = new PutTemplateRequest.Builder().name("default-junit-rule-template").indexPatterns("*").order(-1).settings("index.number_of_shards", JsonData.of(1)).settings("index.number_of_replicas", JsonData.of(0)).build();
-        final PutTemplateResponse putTemplateResponse = elasticsearchClient.indices().putTemplate(request);
-        if (!putTemplateResponse.acknowledged()) {
-            throw new AssertionError("Adding the default template has encountered an error.");
+            final PutTemplateRequest request = new PutTemplateRequest.Builder().name("default-junit-rule-template").indexPatterns("*").order(-1).settings("index.number_of_shards", JsonData.of(1)).settings("index.number_of_replicas", JsonData.of(0)).build();
+            final PutTemplateResponse putTemplateResponse = elasticsearchClient.indices().putTemplate(request);
+            if (!putTemplateResponse.acknowledged()) {
+                throw new AssertionError("Adding the default template has encountered an error.");
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
     void teardown() {
+        lock.lock();
         try {
-            Cleanups.of(transport, server).and(() -> Files.walk(ruleTempDirectory).sorted(Comparator.reverseOrder()).forEach(path -> {
+            Cleanups.of(transport, server).and(() -> Files.walk(tempDirectory).sorted(Comparator.reverseOrder()).forEach(path -> {
                 try {
                     Files.deleteIfExists(path);
                 } catch (IOException e) {
@@ -114,9 +128,10 @@ class ElasticsearchBase {
             })).doAll();
         } catch (IOException e) {
             throw new AssertionError("Unable to close resources", e);
+        } finally {
+            lock.unlock();
         }
     }
-
 
     public ElasticsearchClient getElasticsearchClient() {
         return this.elasticsearchClient;
