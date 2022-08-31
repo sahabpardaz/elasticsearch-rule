@@ -52,11 +52,11 @@ abstract class ElasticsearchBase {
     private ElasticsearchClient elasticsearchClient;
     private ElasticsearchTransport transport;
 
-    public ElasticsearchBase() {
+    protected ElasticsearchBase() {
         this(anOpenPort());
     }
 
-    public ElasticsearchBase(int port) {
+    protected ElasticsearchBase(int port) {
         this.port = port;
     }
 
@@ -68,6 +68,7 @@ abstract class ElasticsearchBase {
         }
     }
 
+    @SuppressWarnings({"java:S5443", "java:S2093"})
     void setup() throws IOException, NodeValidationException {
         // In case of concurrent tests this lock protects Elasticsearch creation and teardown
         lock.lock();
