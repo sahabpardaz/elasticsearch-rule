@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.InfoResponse;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
@@ -12,6 +13,7 @@ import static ir.sahab.elasticsearchrule.ElasticsearchBase.anOpenPort;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
+@Timeout(1)
 class ElasticsearchExtensionCustomPortTest {
     private static final int customPort = anOpenPort();
     @RegisterExtension
@@ -30,7 +32,7 @@ class ElasticsearchExtensionCustomPortTest {
 
         InfoResponse response = elasticsearchClient.info();
 
-        assertEquals("7.17.5", response.version().number());
+        assertEquals("7.17.9", response.version().number());
     }
 
 }

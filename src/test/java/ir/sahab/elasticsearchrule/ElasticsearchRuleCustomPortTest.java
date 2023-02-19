@@ -32,6 +32,6 @@ public class ElasticsearchRuleCustomPortTest {
 
         InfoResponse response = elasticsearchClient.info();
 
-        assertEquals("7.17.5", response.version().number());
+        assertEquals("7.17.9", response.version().number());
     }
 }

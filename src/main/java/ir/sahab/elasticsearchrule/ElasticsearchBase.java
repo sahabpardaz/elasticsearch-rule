@@ -103,7 +103,7 @@ abstract class ElasticsearchBase {
             transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
             elasticsearchClient = new ElasticsearchClient(transport);
 
-            // By default, every index that is created has 1 shards and 1 replica.
+            // By default, every index that is created has 1 shard and 1 replica.
             // However, the rule provides only a single node cluster. In order to change them,
             // a template is created that is used by default for all indexes created.
 
