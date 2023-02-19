@@ -16,34 +16,35 @@ import co.elastic.clients.transport.rest_client.RestClientTransport;
 import ir.sahab.elasticsearchrule.common.Tweet;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 
-public class ElasticsearchRuleTest {
+import static org.junit.jupiter.api.Assertions.*;
 
-    @ClassRule
-    public static final ElasticsearchRule elasticsearchRule = new ElasticsearchRule();
+class ElasticsearchExtensionTest {
 
-    private static ElasticsearchClient elasticsearchClient;
 
-    @BeforeClass
-    public static void setUpClass() {
-        elasticsearchClient = elasticsearchRule.getElasticsearchClient();
+    @RegisterExtension
+    static ElasticsearchExtension elasticsearchExtension = new ElasticsearchExtension();
+    static ElasticsearchClient elasticsearchClient;
+
+    @BeforeAll
+    static void setUpClass() {
+        elasticsearchClient = elasticsearchExtension.getElasticsearchClient();
     }
 
     @Test
-    public void testClient() throws IOException {
+    void testClient() throws IOException {
         String indexName = "twitter";
         CreateIndexRequest createIndexRequest = new CreateIndexRequest.Builder()
                 .index(indexName)
                 .build();
         CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(createIndexRequest);
-        Assert.assertTrue(createIndexResponse.acknowledged());
-        elasticsearchRule.waitForGreenStatus(indexName);
+        assertTrue(createIndexResponse.acknowledged());
+        elasticsearchExtension.waitForGreenStatus(indexName);
 
         final Tweet tweet = new Tweet("kimchy", "2022-01-30", "trying out Elasticsearch");
 
@@ -53,7 +54,7 @@ public class ElasticsearchRuleTest {
                 .document(tweet)
                 .build();
         final IndexResponse response = elasticsearchClient.index(indexRequest);
-        Assert.assertEquals(Result.Created, response.result());
+        assertEquals(Result.Created, response.result());
 
         co.elastic.clients.elasticsearch.indices.RefreshRequest refreshRequest = new RefreshRequest.Builder()
                 .index(indexName).build();
@@ -67,17 +68,17 @@ public class ElasticsearchRuleTest {
                 .index(indexName)
                 .build();
         final SearchResponse<Tweet> searchResponse = elasticsearchClient.search(searchRequest, Tweet.class);
-        Assert.assertEquals(1, searchResponse.hits().hits().size());
+        assertEquals(1, searchResponse.hits().hits().size());
         final Tweet foundTweet = searchResponse.hits().hits().get(0).source();
-        Assert.assertNotNull(foundTweet);
+        assertNotNull(foundTweet);
         String message = foundTweet.getMessage();
-        Assert.assertEquals("trying out Elasticsearch", message);
+        assertEquals("trying out Elasticsearch", message);
     }
 
     @Test
-    public void testHostAndPort() throws IOException {
-        String elasticsearchHost = elasticsearchRule.getHost();
-        int elasticsearchPort = elasticsearchRule.getPort();
+    void testHostAndPort() throws IOException {
+        String elasticsearchHost = elasticsearchExtension.getHost();
+        int elasticsearchPort = elasticsearchExtension.getPort();
         final RestClient restClient = RestClient.builder(new HttpHost(elasticsearchHost, elasticsearchPort, "http")).build();
         try (
                 final RestClientTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper())
@@ -86,7 +87,7 @@ public class ElasticsearchRuleTest {
             String indexName = "twitter2";
             CreateIndexRequest createIndexRequest = new CreateIndexRequest.Builder().index(indexName).build();
             CreateIndexResponse createIndexResponse = anotherElasticsearchClient.indices().create(createIndexRequest);
-            Assert.assertTrue(createIndexResponse.acknowledged());
+            assertTrue(createIndexResponse.acknowledged());
         }
     }
 
